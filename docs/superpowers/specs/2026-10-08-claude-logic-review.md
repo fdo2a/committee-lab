@@ -1,0 +1,49 @@
+# Claude 논리 검토
+
+사용자 승인: 코드 변경·배포와 모든 예약 운용의 논리 정합성을 Claude Code가 검토한다. Codex가 지적을 보완하고 재검토하며 기존 위험 청산은 제외한다. 검토기는 로그인된 현재 Mac에서 실행한다.
+
+Claude는 전제의 모순, 근거에서 결론으로 가는 비약, 반증 조건, 요구사항과 구현의 불일치를 검토한다. 테스트·수치·가격·재무·위험 한도를 대신하지 않고 파일이나 계좌를 직접 수정하지 않는다. 승인을 얻기 위해 기준을 낮추거나 출처를 만들어서는 안 된다.
+
+Node 제어기가 Claude CLI의 구조화 응답을 검증하고 거절 사유를 Codex CLI에 전달한다. 코드 심사는 테스트·자동 수정·재심사·빌드를 포함해 최대5회/총45분으로 제한한다. 투자 운용 심사는 최대5회/총30분과 실행 단계 종료 중 먼저 도달하는 한도에서 보류한다. 운용에서는 가격·재무·ETF 자료 수집을 모두 끝낸 뒤 검토 시간이 시작되며 ETF·주식 심사가 같은 검토 시간을 공유한다. 재호출은 updater가 반환한 reviewWindow를 그대로 전달하고 새로 시작하지 않는다. 수집이 장전·개장·마감 단계 경계를 넘으면 신규 승인을 보류한다. 인증·사용량·도구 실패는 승인으로 처리하지 않는다. 추가 유료 API로 전환하지 않는다.
+
+가격 수집 대상은 기존 activeSymbols, 별도 요청 symbols, 보유 종목과 저장·제출한 모든 테마 investmentIdeas.candidates의 합집합이다. 최종 선정·가격 수집 여부로 테마 후보를 줄이지 않으며 중복을 제거한다. 후보는 기존 허용 지수 검증과 실제 가격·최소 역사 자료 기준을 그대로 적용한다. 주식 가격은 한 실행에서 한 번 수집해 위험 처리와 이후 심사에 재사용한다. 보유 주식 위험 처리는 ETF 모델 심사보다 먼저 수행한다. 수집 실패는 실패로 남기며 자료를 만들지 않는다.
+
+승인 증명은 서버 공개키와 대응하는 Mac 전용 개인키로 서명한다. 요청 본문 전체(승인 증명 제외), API 경로, 코드 버전, 계좌 revision, 발급·만료 시각에 결합한다. 변경·만료·다른 경로·다른 버전·잘못된 서명은 거절한다. 서버는 증명이 없어도 실제 가격을 검증해 기존 위험 점검·청산을 수행하되 신규 승인과 신규 체결은 차단한다. 계좌 변경 충돌에서 이전 승인을 재사용하지 않는다.
+
+주식 buy/short와 ETF buy 모두 적용한다. 위험 청산은 손절·증거금 부족·사전 유닛 손실/목표/기한, 기존 퇴출 자산 청산이다. 검토받지 않은 새 투자논리로 청산을 지시하거나 ETF 목표를 바꾸지 않는다. 미승인 주문을 보존하여 같은 단계의 승인 후 재시도를 허용한다.
+
+코드 검토 승인 역시 정확한 소스 해시에 결합하며 npm run build가 최신 Claude 승인과 테스트 통과를 확인한 다음 배포 산출물을 만든다. 테스트용 번들링은 배포 빌드와 분리한다. 로컬 파일 접근권한을 가진 사용자가 제어기를 바꾸는 행위는 별도 운영 권한의 경계이며 AI 승인이 형식적 안전을 보증하지 않는다.
+
+예약 실행은 현재 Mac에서 프로젝트 지침에 따라 출처 있는 조사를 작성하고 기존 updater를 호출한다. 컴퓨터가 꺼졌거나 검토에 실패하면 신규 투자를 진행하지 않는다. 시장별 신규 투자 판단과 체결의 예약 주체는 Mac 하나로 제한한다. 기존 클라우드 예약은 위험 전용으로 유지한다. Mac과 클라우드가 같은 시각에 위험 상태를 갱신할 수 있으므로 revision 충돌은 최신 상태로 재심사한다. 이전 중지 예약은 재개하지 않는다.
+
+
+## 사용자 승인에 따른 후속 요구사항, 2026-10-10 및 2026-10-12
+
+기본 규칙은 계속 Claude 승인·정확한 요청 서명·15분 증명·서버 재검증이다. 사용자는 2026-10-10 기존 예약의 다음 적격 시장/거래일 1회(주식·ETF 장전·개장·마감)에만 Claude 투자 심사를 생략하는 명시적 운영자 예외를 승인했다. 이는 Claude 승인 증명이 아니며 예외 상태와 실제 데이터·재무·위험·정규장 체결 검사를 별도로 기록한다. 서버의 OPERATOR_REVIEW_EXCEPTION이 첫 유효 쓰기에서 시장/현지 날짜를 고정하고, 완료한 범위를 재개하지 않으며 실패했어도 현지 자정에 만료한다. 다른 시장/날짜의 두 번째 운용은 허용하지 않는다. 모델 인증 실패를 이 예외로 바꾸거나 클라우드 검토 큐를 자동 활성화하지 않는다.
+
+확인한 사용자 승인 기록: Codex 채팅 `01a11f38-5213-79a2-be31-b545b5e6800f`, 사용자 메시지 `01a12634-411e-7c63-a69c-4675db38f8ea`. 당시 제시한 범위는 “다음 유효한 시장의 운용 1회(주식·ETF의 장전·개장·마감)”이며, 예외 기능의 코드 빌드·배포도 그때 한 번만 승인 없이 진행할지 물은 데 대해 사용자는 “이번 예외 기능의 빌드·배포도 승인 생략”이라고 답했다. 과거 1회 빌드 예외는 이미 Site35에 사용됐다. 이번 변경과 이후 코드 빌드·배포에는 적용하지 않는다. 현재 코드 심사는 앱에서 읽은 이 사용자 메시지 원문을 심사 대상 소스와 분리한 `userAuthorization` 필드로 함께 제공한다. 문서가 자체적으로 승인 권한을 발급하지 않는다.
+
+2026-10-12 사용자는 “해결 방법을 바탕으로 해결해”, “그리고 클로드 검토는 그냥 전부 sonnet 5.5로 돌려”라고 지시했다. 조사 출처 오류의 정확한 행, 비밀 없는 실패 단계, 일본 휴장과 한국 처리 분리, 실제 공식 근거 갱신을 구현하고 모두 Sonnet 5.5 medium으로 검토한다. 승인·숫자·위험 기준을 낮추거나 새로운 운영자 예외를 만들지 않는다.
+
+## 사용자 승인에 따른 후속 요구사항, 2026-10-17: Cloudflare 이전
+
+2026-10-17 사용자는 Claude Code 세션에서 ChatGPT Sites 호스팅을 두고 “이걸 다른 방식으로 바꿀 수는 없어?”라고 물은 뒤 “claudeflare 방식으로 옮겨보자”, 이어서 “Start step 2 and 3 of the plan: add Access JWT auth to the Worker and the wrangler config. I will do wrangler login separately.”, “committee-lab 말고 portfolio로 하고싶어”라고 지시했다. 계획 원문은 [docs/cloudflare-migration-plan-2026-10-17.md](../../cloudflare-migration-plan-2026-10-17.md)이며 2·3단계만 이번 범위다.
+
+요구사항: (1) Worker가 모든 요청(정적 파일 포함)의 `Cf-Access-Jwt-Assertion`을 팀 JWKS·RS256 서명·`iss`·`aud`·`exp`로 직접 검증하고, `ACCESS_TEAM_DOMAIN`·`ACCESS_AUD`·`OWNER_EMAIL`·`ACCESS_SERVICE_ID` 중 하나라도 없거나 검증에 실패하면 401로 닫힌다. (2) 소유자 이메일 JWT만 `/api/action`·`/api/pause`·`/api/schedule`과 MCP 도구 호출을 할 수 있고, 등록된 서비스 토큰(`common_name`)은 updater·검토 클라이언트가 실제로 호출하는 경로(`SERVICE_ROUTES`: context·session·account·runs·run·attempt·research·research-check·research-data·universe·allocation·market-reports·weekly-report-context·weekly-reports, `/api/logic-review*`, 정적 파일)만 쓰고 그 밖의 API는 403이다. (3) 기존 Sites 배포는 `AUTH_PROVIDER=sites`를 명시한 경우에만 dispatch 헤더를 신뢰하며 기본값은 Access 모드다. (4) updater·검토 클라이언트는 Access 서비스 토큰 헤더를 보낼 수 있고 `https://` origin만 허용한다. (5) 배포는 `wrangler.toml`과 `npm run deploy`로 하되 번들은 기존 `scripts/build.mjs`의 Claude 승인 게이트만 생성하고 wrangler는 재번들하지 않는다. 투자 논리·위험 한도·승인 기준·서명 계약은 바꾸지 않으며, 데이터 이전·예약 실행(4~6단계)은 이번 범위가 아니다. 소유자 이메일·AUD·팀 도메인·서비스 토큰은 저장소가 아닌 Worker secret으로만 등록한다.
+
+같은 날 4단계(데이터 이전)를 시작하며 사용자는 Sites 계좌를 일시정지하고 Codex 앱에서 `GET /api/account`·`GET /api/runs`·주간 context를 파일로 내보냈다(방법 3, revision 111, run 27개). Cloudflare D1은 문자열·행 크기를 2MB로 제한하는데 현재 계좌 상태는 약 8.2MB이므로 추가 요구사항: (6) `writeAccount`·보관(archive)·가져오기는 1MB를 넘는 상태 JSON을 `paper_account_part` 행(id, part_set, part, body)으로 나누어 저장하고 `paper_account.state`에는 `{"parts":n,"set":uuid}` 포인터만 둔다. 조각을 먼저 쓰고 포인터를 갱신하며, 경쟁에서 진 쓰기는 자기 조각을 지우고, 성공한 쓰기는 직전 세트 하나만 남긴다. 포인터가 가리키는 조각이 없으면 계좌를 새로 만들지 않고 오류로 닫는다. 1MB 이하 상태는 기존처럼 인라인 저장이며 metadata만 갱신하는 경로는 포인터를 건드리지 않는다. (7) `POST /api/import`는 이전 전용이다. `account`는 `paper_account`에 `main` 행이 없을 때만, `runs`는 `run_log`가 비어 있을 때만 받아들이고(아니면 409), 내보낸 revision·metadata·updatedAt을 그대로 보존하며 `validateState`를 통과해야 한다. 이 경로는 승인·체결·위험 심사를 호출하지 않고 기존 live 계좌를 교체할 수 없다. 서비스 토큰 허용 목록에 포함되며 `scripts/import-ledger.mjs`가 환경변수의 Access 서비스 토큰으로 호출한 뒤 `GET /api/account`를 읽어 revision·현금·보유·거래·주문·history 수를 비교한다.
+
+6단계 1차로 사용자는 "GitHub Actions 예약로 하자"라고 선택했다. 추가 요구사항: (8) `.github/workflows/scheduled-operation.yml`은 시장별 단계 시각에 체크아웃의 `web/run_autonomy.py`를 Access 서비스 토큰으로 실행한다. 실행 전 체크아웃의 `sourceDigest()`와 배포된 `/api/context.logicReview.codeDigest`가 다르면 실행을 거부한다. 미국 예약은 EDT·EST 두 오프셋을 모두 등록하고 뉴욕 시각이 운용 창(08:20~09:00, 09:40~10:15, 16:20~16:55)에 없으면 종료한다. 종료코드 2(신규 활동 보류)는 성공으로 기록하고 1은 실패다. 러너에는 Claude 검토자가 없으므로 모든 실행은 위험 전용 감시와 채권·시황 수집이며 신규 주식·ETF 활동은 서명 승인 경로가 생길 때까지 보류된다. 자격 증명은 저장소 secrets에만 있고 로그·요약에 출력하지 않는다.
+
+6단계 2차로 사용자는 "기존 설계의 GitHub 클라우드 검토 큐(CLOUD_REVIEW_ENABLED)를 이 저장소에서 살려"라고 지시했다. 추가 요구사항: (9) 검토기 저장소는 `fdo2a/portfolio-investment`이며 Worker는 `CLOUD_REVIEW_REPOSITORY`와 `CLOUD_REVIEW_REF`(기본 `main`)로 `claude-review.yml`을 dispatch한다. `scripts/setup-cloud-auth.py`는 구독 OAuth를 저장소 secret으로, 저장소 전용 dispatch 토큰을 wrangler stdin으로 Worker secret에 넣으며 Keychain이나 Sites 환경은 더 쓰지 않는다. 활성화 순서와 기준은 그대로다: 실제 `auth-check` 실행이 `status:verified`·`accountWrite:false`를 보고한 뒤에만 `CLOUD_REVIEW_ENABLED=true`를 켠다. 승인·서명·15분 증명·30분/5회 계약, 데이터·재무·위험 검사는 바꾸지 않는다.
+
+사용자는 이어서 "신규 주식 편입을 재개하려면 조사 주체(이전엔 ChatGPT 예약이 하던 일)를 GitHub 실행에 연결해"라고 지시했고 조사 모델은 "Claude as researcher"를 선택했다. 추가 요구사항: (10) `scripts/research-agent.mjs`가 장전 실행에서 Claude Sonnet 5.5(구독 토큰)로 조사 JSON을 작성한다. 작업 디렉터리에는 `/api/context`·`/api/universe`·`/api/research-data`·`/api/market-reports` 응답 파일과 조사 지침 문서만 두고, 모델 도구는 Read·Write·WebFetch·WebSearch로 제한하며 서비스 자격 증명과 OAuth 외 비밀은 모델 프로세스 환경·파일·프롬프트에 넣지 않는다. 결과는 `/api/research-check`로 검증하고 누락은 최대 3라운드 보완하며 40분 안에 끝낸다. 모델은 research.json을 일찍, 자주 다시 써서 시간 초과로 중단돼도 유효한 부분 조사가 남게 하고, 전체 stream-json 기록은 작업 디렉터리의 claude-log.jsonl에 남기고 Actions artifact로 7일 보존한다. 2026-10-17 2차 dry run은 `Write(//work/research.json)` 규칙이 dontAsk에서 무시돼 쓰기가 거부됐으므로 규칙을 `Edit(//work/research.json)`로 바꾸고 라운드별 결과를 로그에 남긴다. 3차 dry run(run 39038910325)은 3라운드 안에 관찰(watch) 결론의 research.json을 썼지만 referenceIndex.sourceUrls가 최상위 sources에 없어 `/api/research-check`가 거부했고 거부 사유가 일반 문구뿐이어서 모델이 고칠 수 없었다. 그래서 출처 검증 오류에 누락 URL을 적고 연구 점검 사유에 실제 오류 문구를 붙이며, 조사 규칙에 모든 sourceUrls의 등록 의무를 명시한다. 같은 실행에서 1·2라운드 `/api/research-check`가 HTTP 503을 돌려준 원인은 미확인이다. 4차 dry run(run 39039964425)은 `wrangler tail`로 확인한 결과 모든 요청이 ok(research-check CPU 약 340~400ms)였고 503은 재현되지 않았다. 모델이 marketReportReview를 객체로 써서 거부됐고 텍스트 오류 문구가 필드를 가리키지 않아 두 라운드를 허비했으므로, 텍스트 오류에 받은 값을 적고 context·조사 규칙에 문자열 필드를 명시하며 research-check의 5xx는 같은 라운드에서 한 번 재시도한다. 2026-10-17 첫 dry run은 20분 한도에서 결과 파일 없이 시간 초과했으므로 한도를 40분으로 늘리고 장전 cron을 50분 앞당겼다(07:10 KST, 07:40 뉴욕). 부분 조사도 updater에 그대로 전달해 서버가 누락을 기록하게 하고, 조사 실패는 위험 전용 실행으로 이어진다. 장전 cron은 50분 앞당기고 서버 장전 창 시작까지 대기한다. 논리 검토는 기존 `claude-review.yml`의 별도 세션(도구 없음)이 수행하며 조사와 검토는 같은 세션을 공유하지 않는다. 가격·재무·위험·승인 기준은 바꾸지 않는다.
+
+
+## 사용자 승인에 따른 후속 요구사항, 2026-10-28: 편입 허들 완화
+
+사용자는 "기본적으로 방향을 조건을 완벽히 맞춰야지만 투자를 실행하도록 하지 말고 어느정도 아이디어가 괜찮고 매수할 만하다고 판단되면 일단 매수하고 판단하는 방향으로 하자. 매수를 결정하는 그 허들을 좀 낮추자는 얘기야."라고 지시했고, 범위로 "A로 진행해. 조사 지시문과 투자 판단 검토 기준만 바꾸고 서버 보류는 유지."를 골랐다. 요구사항: (1) 투자 운용 심사(`/api/run`·`/api/allocation`, 클라우드와 Mac 경로 모두)는 코드 심사와 분리된 `DECISION_RULES`를 쓴다. 코드 심사와 클라우드 인증 자체 점검은 기존 `REVIEW_RULES`를 그대로 쓴다. (2) `DECISION_RULES`는 컨셉·기간 안 촉매·구성 종목별 사업 근거·무효화 조건·손실 한도를 갖춘 바스켓을 허용하고, 지어내거나 등록되지 않은 출처, 서버 자료와 어긋나는 숫자, 내부 모순, 스스로 인용한 근거가 반박하는 결론, 사업 근거 없는 종목, 하드 한도·규칙 위반만 반려한다. 다가오는 이벤트, 방향이 같은 다소 지난·시점 혼재 자료, 필수가 아닌 근거 누락, 남은 불확실성은 risks·limitations·무효화 조건에 적혀 있으면 비차단 관찰이다. 근거 있는 관찰 결정도 허용하며 편입을 강요하지 않는다. (3) 조사 지시문은 위 조건이 갖춰지면 일단 편입하고 편입 뒤 계속 판단하게 하며, 반려 수정은 바스켓을 철회하기 전에 지적된 종목을 빼거나 비중을 줄인다. 논지가 무너졌거나 남은 종목이 2개 미만일 때만 관찰로 내린다. (4) 서버 보류(매크로 5종 누락·미확인, 조사 미완료 바스켓, 36시간 신선도, businessPass·numericPass), 가격·재무 숫자 검증, 출처 등록, 계좌 하드 한도·손실 한도·손절·위험 청산은 바꾸지 않는다.
+
+## 사용자 승인에 따른 후속 요구사항, 2026-10-29: 필수 검토 종목
+
+사용자는 "내가 수동으로 종목을 추가할 수도 있게 할 수는 없나?"라고 물은 뒤 "수동 추가 종목을 다음 장전 조사가 반드시 후보로 검토하게 만들어. 검토·서버 심사는 그대로. 먼저 설계부터 보여줘."라고 지시했고, 제시된 설계에 "이 설계대로 만들고 검토·배포까지 해. 반영은 예약 실행 사이에."라고 승인했다. 요구사항: (1) 소유자 전용 `/api/manual-candidates`(GET·POST·DELETE, `SERVICE_ROUTES` 제외)로 928개 지수 후보 안의 종목과 300자 이하 메모를 추가·삭제한다. 미등록·보유 중·이미 대기 중인 종목과 대기 20개 초과는 거절하고, 쓰기는 `expectedRevision`이 맞을 때만 한다. (2) `/api/context`의 `manualCandidates`에 검토 대기 종목을 넣고, 조사 지시문은 해당 시장 지역 종목을 맞는 아이디어의 후보에 넣거나 새 아이디어를 만들어 원문 근거 있는 fundamental·technical 행을 남기게 한다. 메모는 근거가 아니다. (3) 조사 점검은 조사의 매크로·아이디어 지역에 속한 대기 종목이 철회되지 않은 아이디어 후보이면서 출처 있는 두 검토 행을 갖지 않으면 `kind:'manual'`, `ideaId:null` 누락을 추가한다. 이 누락은 다른 아이디어의 `readyUnitIds`를 막지 않는다. 대신 조사 루프(`researchCycle`)는 `kind:'manual'` 누락이 남아 있으면 ready 바스켓이 있어도 시간·라운드 한도 안에서 다음 라운드를 계속한다. 지시문은 넣은 아이디어의 참조지수 구성에도 그 종목을 포함하게 한다. (4) 승인된 장전 운용(`/api/run`, pre 단계)이 조사를 저장할 때 검토된 대기 종목에 `reviewedAt`과 결과(바스켓 제안 또는 관찰과 이유)를 기록하고, 검토되지 않은 종목은 다음 장전까지 대기로 남긴다. (5) 편입 판단, Claude 투자 판단 검토, 서버 숫자 검증, 신선도, 계좌 한도는 바꾸지 않으며 수동 추가가 매수를 보장하지 않는다.

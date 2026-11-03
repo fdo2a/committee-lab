@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {validateWatchlist} from '../worker/watchlist.mjs';import {eligibleCatalog} from '../web/universe.mjs';
+const snapshot=()=>({provider:'Yahoo Finance / Python',fetchedAt:new Date().toISOString(),observations:eligibleCatalog.map(c=>({symbol:c.symbol,price:100,time:Date.now()/1000,currency:c.currency,momentum:0,averageTurnover:10000,bars:60})),failures:[]});
+test('whole-index surveillance is complete only with all928 unique observed quotes',()=>{const s=snapshot();assert.equal(validateWatchlist(s).count,928);s.observations.pop();assert.throws(()=>validateWatchlist(s),/전체/);});
+test('unavailable member remains explicit and cannot become a fabricated quote',()=>{const s=snapshot(),x=s.observations.pop();s.failures=[{symbol:x.symbol,reason:'Provider unavailable'}];assert.equal(validateWatchlist(s).complete,false);s.observations[0].price=NaN;assert.throws(()=>validateWatchlist(s),/가격/);});

@@ -1,0 +1,17 @@
+node_modules/
+.sites-runtime/
+*.tar.gz
+*.tar
+.env
+.env.*
+dashboard.jpg
+dist/
+!.env.example
+
+__pycache__/
+*.pyc
+.review/
+worker/assets.generated.mjs
+.openchrome/
+.wrangler/
+.DS_Store

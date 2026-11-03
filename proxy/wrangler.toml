@@ -1,0 +1,14 @@
+# Deployed as the public `portfolio` Worker: Cloudflare Access in front, Mac app behind (see proxy/index.mjs).
+# Deploy only through `npm run deploy` after Claude review; never deploy the root wrangler.toml to `portfolio`.
+name = "portfolio"
+main = "index.mjs"
+compatibility_date = "2026-10-01"
+
+# Tunnel `committee-mac` → 127.0.0.1:8787 on the operator's Mac.
+[[vpc_services]]
+binding = "MAC"
+service_id = "<your-vpc-service-id>"
+remote = true
+
+[observability]
+enabled = true
